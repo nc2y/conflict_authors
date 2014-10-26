@@ -6,7 +6,7 @@ nicolasc@cmu.edu
 
 10/23/2014
 
-conflict_author.py:
+conflict_authors.py:
     Extracts a list of authors from HotCRP database, and performs a lookup in
     DBLP to figure out who were their coauthors. This generates a list of
     conflicts, which are then checked to see if they were marked as conflicts
