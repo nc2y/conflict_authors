@@ -164,14 +164,7 @@ def get_hotcrp_pc_conflicts(paper_id):
 
 def get_hotcrp_collab_conflicts(paper_id):
     """
-    !UNREACHABLE CODE!
-
     Returns collaborators in HotCRP for a given paper_id. 
-    This function is _never_ called at the moment. It actually does a 
-    reasonable job of returning proper collaborator lists, but the problem is
-    that HotCRP doesn't seem to use the collaborator field much (or at all?)
-
-    I am leaving it in case we want to do something with it in the future.
     """ 
 
     c = db.cursor()
@@ -220,7 +213,7 @@ def get_hotcrp_collab_conflicts(paper_id):
             name = collaborator[:m1.start()-1] # name is before institution
     
             pc = is_in_pc(name)
-            listed = is_in_hotcrp_pc_conflicts(name)
+            listed = is_in_hotcrp_pc_conflicts(name, paper_id)
 
             if (["Individual", name, pc, listed] not in conflicts): 
                 conflicts.append(["Individual", name, pc, listed])
@@ -231,7 +224,7 @@ def get_hotcrp_collab_conflicts(paper_id):
             name = collaborator[m5.end():] # name is after title
             
             pc = is_in_pc(name)
-            listed = is_in_hotcrp_pc_conflicts(name)
+            listed = is_in_hotcrp_pc_conflicts(name, paper_id)
 
             if (["Individual", name, pc, listed] not in conflicts):
                 conflicts.append(["Individual", name, pc, listed])
@@ -242,7 +235,7 @@ def get_hotcrp_collab_conflicts(paper_id):
             name = collaborator[m6.end():] # name is after title
             
             pc = is_in_pc(name)
-            listed = is_in_hotcrp_pc_conflicts(name)
+            listed = is_in_hotcrp_pc_conflicts(name, paper_id)
 
             if (["Individual", name, pc, listed] not in conflicts): 
                 conflicts.append(["Individual", name, pc, listed])
@@ -254,7 +247,7 @@ def get_hotcrp_collab_conflicts(paper_id):
             institutional = False
             
             pc = is_in_pc(collaborator)
-            listed = is_in_hotcrp_pc_conflicts(collaborator)
+            listed = is_in_hotcrp_pc_conflicts(collaborator, paper_id)
 
             if (["Individual", collaborator, pc, listed] not in conflicts): 
                 conflicts.append(["Individual", collaborator, pc, listed])
@@ -270,7 +263,7 @@ def get_hotcrp_collab_conflicts(paper_id):
                 warning("No match for %s -- individual?" % collaborator)
             
             pc = is_in_pc(collaborator)
-            listed = is_in_hotcrp_pc_conflicts(collaborator)
+            listed = is_in_hotcrp_pc_conflicts(collaborator, paper_id)
 
             if (["Individual", collaborator, pc, listed] not in conflicts):
                 conflicts.append(["Individual", collaborator, pc, listed])
@@ -342,6 +335,10 @@ def main():
                       if auth[0] == "Individual" and auth[2] and not auth[3]]:
                 print("%s might be a PC conflict but not listed as such." %
                       c[1])
+                
+                collabs = get_hotcrp_collab_conflicts(p)
+                if c[1] in [coll[1] for coll in collabs]:
+                    print("%s was however listed as a collaborator." % c[1])
         else:
             print("None")
 
