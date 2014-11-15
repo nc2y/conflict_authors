@@ -41,8 +41,9 @@ def warning(*objs):
     print(*objs, file=sys.stderr)
 
 def get_dblp_conflicts(author):
-    canon_author = author.lower().decode("utf-8").replace(" ",
-                                                          "_").encode("utf-8")
+    canon_author = \
+    author.lower().decode("utf-8").\
+            replace("'","_").replace(".","").replace(" ", "_").encode("utf-8")
     coauthors = []
     r1 = re.compile(r"[0-9]")
     r2 = re.compile(r" *$")
@@ -54,7 +55,12 @@ def get_dblp_conflicts(author):
 
         if (DEBUG): 
             warning("Querying %s" % dblp_url.encode('utf8'))
-        dblp_result = simplejson.load(urllib.urlopen(dblp_url))
+        try:
+            dblp_result = simplejson.load(urllib.urlopen(dblp_url))
+        except simplejson.JSONDecodeError:
+            warning("A JSON error was encountered for URL %s, aborting." %
+                    dblp_url.encode('utf8'))
+            return coauthors
 
         try:
             results = dblp_result['result']['hits']['hit']
