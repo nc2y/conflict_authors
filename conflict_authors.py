@@ -15,6 +15,8 @@ conflict_authors.py:
     Tweaks and improvements welcome!
 """
 
+# last updated 11/10/2020 Lujo Bauer lbauer@cmu.edu
+
 import os 
 import sys
 import sqlite3
@@ -49,14 +51,20 @@ def get_dblp_conflicts(author):
     r2 = re.compile(r" *$")
 
     for year in CONFLICT_YEARS:
-        dblp_url="http://www.dblp.org/search/api/?q=ce:year:"\
-                +year+":*%20ce:author:"+canon_author+\
-                ":*&h=1000&c=4&f=0&format=json"
+        # changed again 11/2020
+        dblp_url="http://www.dblp.org/search/api/?q=author:"+canon_author+"+"+year+"&format=json"
+        #dblp_url="http://www.dblp.org/search/api/?q=author=%3A"+canon_author+"%3A%20"+year+"&format=json"
+#        dblp_url="http://www.dblp.org/search/api/?q=ce:year:"\
+#                +year+":*%20ce:author:"+canon_author+\
+#                ":*&h=1000&c=4&f=0&format=json"
 
         if (DEBUG): 
             warning("Querying %s" % dblp_url.encode('utf8'))
         try:
             dblp_result = simplejson.load(urllib.urlopen(dblp_url))
+
+            if (DEBUG): print(simplejson.dumps(dblp_result))
+ 
         except simplejson.JSONDecodeError:
             warning("A JSON error was encountered for URL %s, aborting." %
                     dblp_url.encode('utf8'))
@@ -66,7 +74,13 @@ def get_dblp_conflicts(author):
             results = dblp_result['result']['hits']['hit']
             for r in results:
                 author_list = r['info']['authors']['author']
-                for a in author_list:
+                if type(author_list) is list:
+                    converted_list = author_list
+                else:
+                    converted_list = [author_list] 
+                for b in converted_list:
+                    if (DEBUG): print("next author: " + str(b))
+                    a = b['text']    
                     a = r1.sub("", a) # DBLP adds numbers to some authors
                     a = r2.sub("", a) # and trailing spaces to some 
                     if (a != author and a not in coauthors): 
@@ -104,12 +118,15 @@ def split_name(name):
         first = names[0]
         last = ""
         for i in range(1, len(names)):
-            if (i < len(names) - 1 and names[i][0].isupper()):
-                first = first+" "+names[i]
-            else:
-                for j in range(i, len(names)):
-                    last += names[j]+" "
-                break
+            try:
+                if (i < len(names) - 1 and len(names[i])>0 and names[i][0].isupper()):
+                    first = first+" "+names[i]
+                else:
+                    for j in range(i, len(names)):
+                        last += names[j]+" "
+                    break
+            except IndexError as e:
+                warning ("Error breaking up name: "+str(names)+"; error: "+str(e))
         last = last[:-1]
 
     return (first, last)
@@ -196,6 +213,9 @@ def get_hotcrp_collab_conflicts(paper_id):
     (Institution)". I don't know how to do better.
     """
 
+    if conflict_rows[0] is None:
+        return conflicts
+    
     rows = conflict_rows[0].split("\n")
     institutional = True
 
@@ -277,6 +297,15 @@ def get_hotcrp_collab_conflicts(paper_id):
     return conflicts
 
 def main(): 
+    # optionally read from command line what paper number to start from and end with.
+    # this can be helpful for debugging
+    if (len(sys.argv) == 3):
+      start_id = int(sys.argv[1])
+      end_id = int(sys.argv[2])
+    else:
+      start_id = 0
+      end_id = 9999
+
     dblp_conflict_list = {}
     c = db.cursor() 
     c.execute("SELECT paperId, authorInformation from Paper;")
@@ -286,11 +315,17 @@ def main():
         paper_id = row[0]
         authors = row[1]
 
+        if (paper_id < start_id): continue
+        if (paper_id > end_id): continue
+
         print("Processing paper %s..." % paper_id)
         dblp_conflict_list[paper_id] = []
         author_list = authors.decode('utf-8').split('\n')
+        if (DEBUG): print(author_list)
 
         for a in author_list:
+            if (DEBUG): print("author ["+a+"]")
+            if a == '': continue
             first_name = ""
             last_name = ""
             email_address = ""
@@ -313,6 +348,7 @@ def main():
                 if (is_in_pc(author_name)):
                     conflict = ["Individual", author_name, True, True]
                     dblp_conflict_list[paper_id].append(conflict)
+                    if (DEBUG): print("adding conflict (author on PC): "+author_name)
                     
                 if (["Institution", institution] not in
                     dblp_conflict_list[paper_id]):
@@ -324,13 +360,21 @@ def main():
                                 is_in_hotcrp_pc_conflicts(coauthor, paper_id)]
                     if (conflict not in dblp_conflict_list[paper_id]):
                         dblp_conflict_list[paper_id].append(conflict)
+                        if (DEBUG): print("adding coauthor as conflict: "+coauthor)
 
-            except IndexError:
+            except IndexError as error:
                 if (DEBUG): 
-                    warning("Unparsable author name.")
+                    warning("Unparsable author name: ["+a+"]")
 
     for p in dblp_conflict_list.keys():
         print("----------------------------------------------------------------")
+
+        if (DEBUG):
+	    print("\n dblp_conflict_list[p]\n")
+	    print(dblp_conflict_list[p])
+            print("\n get_hotcrp_pc_conflicts(p)\n")
+            print(get_hotcrp_pc_conflicts(p))
+
         print("Paper %s's discrepancies:" % p)
         
         print("\nPC co-authors according to DBLP, not listed as a conflict:")
